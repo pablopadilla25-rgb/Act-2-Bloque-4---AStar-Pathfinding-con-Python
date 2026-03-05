@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title> Sistema de Navegación A*</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #020617; color: #e2e8f0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh; padding: 20px;
+    user-select: none;
+  }
+  h1 {
+    text-align: center; font-size: 26px; font-weight: 800;
+    background: linear-gradient(90deg,#38bdf8,#818cf8);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 4px;
+  }
+  .subtitle { text-align:center; color:#64748b; font-size:13px; margin-bottom:20px; }
+
+  .layout { display:flex; gap:20px; justify-content:center; flex-wrap:wrap; }
+
+  .sidebar { width:200px; display:flex; flex-direction:column; gap:12px; }
+
+  .section {
+    background:#0f172a; border-radius:10px; padding:12px;
+    border:1px solid #1e293b;
+  }
+  .section-title {
+    font-size:11px; font-weight:700; color:#64748b;
+    text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;
+  }
+
+  .tool-btn {
+    display:block; width:100%; padding:7px 10px; border-radius:8px;
+    border:2px solid transparent; background:#1e293b; color:#e2e8f0;
+    cursor:pointer; text-align:left; font-size:13px;
+    transition:all .15s; margin-bottom:4px;
+  }
+  .tool-btn:last-child { margin-bottom:0; }
+  .tool-btn.active { background: var(--c)33 !important; border-color: var(--c) !important; }
+
+  .legend-item { display:flex; align-items:center; gap:8px; font-size:12px; margin-bottom:5px; }
+  .legend-color { width:14px; height:14px; border-radius:3px; flex-shrink:0; }
+
+  .stat-row { display:flex; justify-content:space-between; font-size:12px; color:#94a3b8; margin-bottom:4px; }
+  .stat-val { font-weight:700; color:#e2e8f0; }
+
+  .main { display:flex; flex-direction:column; gap:12px; }
+
+  #grid-container {
+    border:2px solid #1e293b; border-radius:10px;
+    overflow:hidden; display:inline-block; line-height:0;
+  }
+  .grid-row { display:flex; }
+  .cell {
+    width:28px; height:28px;
+    border:1px solid #334155;
+    display:flex; align-items:center; justify-content:center;
+    font-size:14px; cursor:pointer;
+    transition:background .08s;
+    flex-shrink:0;
+  }
+
+  .actions { display:flex; gap:10px; flex-wrap:wrap; }
+  .action-btn {
+    padding:9px 16px; border-radius:8px; border:none;
+    color:#fff; font-weight:700; font-size:13px; cursor:pointer;
+    transition:opacity .15s;
+  }
+  .action-btn:disabled { opacity:.5; cursor:not-allowed; }
+
+  .msg {
+    border-radius:8px; padding:8px 12px; font-size:13px;
+    display:none;
+  }
+
+  label.option { display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; }
+
+  @keyframes popIn { from{transform:scale(0.5);opacity:0} to{transform:scale(1);opacity:1} }
+  .path-anim { animation: popIn .12s ease; }
+</style>
+</head>
+<body>
+
+<h1>Sistema de Navegación A*</h1>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <div class="section">
+      <div class="section-title">🛠 Herramientas</div>
+      <button class="tool-btn active" data-tool="start" style="--c:#22c55e">🚗 Origen</button>
+      <button class="tool-btn" data-tool="end"   style="--c:#f59e0b">🏁 Destino</button>
+      <button class="tool-btn" data-tool="wall"  style="--c:#475569">🏢 Edificio</button>
+      <button class="tool-btn" data-tool="slow"  style="--c:#7c3aed">🐢 Tráfico lento</button>
+      <button class="tool-btn" data-tool="fast"  style="--c:#0369a1">⚡ Autopista</button>
+      <button class="tool-btn" data-tool="erase" style="--c:#334155">🗑 Borrar</button>
+    </div>
+
+    <div class="section">
+      <div class="section-title">🗺 Leyenda</div>
+      <div class="legend-item"><div class="legend-color" style="background:#22c55e"></div>Origen</div>
+      <div class="legend-item"><div class="legend-color" style="background:#f59e0b"></div>Destino</div>
+      <div class="legend-item"><div class="legend-color" style="background:#f43f5e"></div>Ruta óptima</div>
+      <div class="legend-item"><div class="legend-color" style="background:#7c3aed"></div>Tráfico lento</div>
+      <div class="legend-item"><div class="legend-color" style="background:#0369a1"></div>Autopista</div>
+      <div class="legend-item"><div class="legend-color" style="background:#0f172a; border:1px solid #475569"></div>Edificio</div>
+      <div class="legend-item"><div class="legend-color" style="background:#1e3a5f"></div>Explorado</div>
+    </div>
+
+    <div class="section" id="stats-section" style="display:none">
+      <div class="section-title">📊 Estadísticas</div>
+      <div class="stat-row">Longitud ruta <span class="stat-val" id="stat-len">—</span></div>
+      <div class="stat-row">Celdas exploradas <span class="stat-val" id="stat-vis">—</span></div>
+      <div class="stat-row">Diagonales <span class="stat-val" id="stat-diag">—</span></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">⚙️ Opciones</div>
+      <label class="option">
+        <input type="checkbox" id="show-visited" checked />
+        Mostrar explorados
+      </label>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div id="grid-container"></div>
+
+    <div class="actions">
+      <button class="action-btn" id="btn-run"    style="background:#22c55e">▶ Calcular Ruta</button>
+      <button class="action-btn" id="btn-clear"  style="background:#64748b">↺ Limpiar Ruta</button>
+      <button class="action-btn" id="btn-preset" style="background:#0369a1">🗺 Cargar Ejemplo</button>
+      <button class="action-btn" id="btn-reset"  style="background:#f43f5e">🗑 Reset Total</button>
+    </div>
+
+    <div class="msg" id="msg-nostart" style="background:#f59e0b18;border:1px solid #f59e0b44;color:#f59e0b; display:block">
+      👆 Selecciona "Origen" y haz clic en el mapa
+    </div>
+    <div class="msg" id="msg-noend" style="background:#f59e0b18;border:1px solid #f59e0b44;color:#f59e0b">
+      🏁 Ahora selecciona "Destino"
+    </div>
+    <div class="msg" id="msg-nopath" style="background:#f43f5e18;border:1px solid #f43f5e44;color:#f43f5e">
+      ⚠️ No existe ruta entre los puntos seleccionados
+    </div>
+    <div class="msg" id="msg-ok" style="background:#22c55e18;border:1px solid #22c55e44;color:#22c55e">
+      ✅ <span id="msg-ok-text"></span>
+    </div>
+    <div class="msg" style="background:#47556918;border:1px solid #47556944;color:#64748b;font-size:11px;display:block">
+      💡 Arrastra el ratón para pintar varias celdas
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+const ROWS = 18, COLS = 24;
+
+const CELL_STYLE = {
+  empty: { bg:"#1e293b", border:"#334155" },
+  wall:  { bg:"#0f172a", border:"#1e293b" },
+  slow:  { bg:"#7c3aed", border:"#6d28d9" },
+  fast:  { bg:"#0369a1", border:"#0284c7" },
+};
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let grid = makeGrid();
+let startPos = null, endPos = null;
+let currentTool = "start";
+let isMouseDown = false;
+let lastCell = null;
+let pathCells = [], visitedCells = [];
+let animating = false;
+
+function makeGrid() {
+  return Array.from({length:ROWS}, () =>
+    Array.from({length:COLS}, () => ({type:"empty"}))
+  );
+}
+
+// ── A* ────────────────────────────────────────────────────────────────────────
+function heuristic(a, b) {
+  const dx = Math.abs(a.x-b.x), dy = Math.abs(a.y-b.y);
+  return Math.max(dx,dy) + (Math.SQRT2-1)*Math.min(dx,dy);
+}
+
+function aStar(start, end) {
+  const key = (x,y) => `${x},${y}`;
+  const getCell = (x,y) => grid[y]?.[x];
+  const openSet = new Map();
+  const cameFrom = {}, gScore = {}, fScore = {};
+  const sk = key(start.x, start.y);
+  gScore[sk] = 0; fScore[sk] = heuristic(start,end);
+  openSet.set(sk, start);
+
+  const dirs = [
+    {dx:1,dy:0,c:1},{dx:-1,dy:0,c:1},{dx:0,dy:1,c:1},{dx:0,dy:-1,c:1},
+    {dx:1,dy:1,c:Math.SQRT2},{dx:-1,dy:1,c:Math.SQRT2},
+    {dx:1,dy:-1,c:Math.SQRT2},{dx:-1,dy:-1,c:Math.SQRT2},
+  ];
+
+  while (openSet.size > 0) {
+    let current=null, ck=null, lowestF=Infinity;
+    for (const [k,node] of openSet) {
+      if ((fScore[k]??Infinity) < lowestF) { lowestF=fScore[k]; current=node; ck=k; }
+    }
+    if (current.x===end.x && current.y===end.y) {
+      const path=[];
+      let k=ck;
+      while(k){ const [x,y]=k.split(",").map(Number); path.unshift({x,y}); k=cameFrom[k]; }
+      return {path, visited:Object.keys(gScore)};
+    }
+    openSet.delete(ck);
+    for (const {dx,dy,c} of dirs) {
+      const nx=current.x+dx, ny=current.y+dy;
+      if (nx<0||ny<0||nx>=COLS||ny>=ROWS) continue;
+      const cell=getCell(nx,ny);
+      if (!cell||cell.type==="wall") continue;
+      if (dx!==0&&dy!==0) {
+        if (getCell(current.x+dx,current.y)?.type==="wall") continue;
+        if (getCell(current.x,current.y+dy)?.type==="wall") continue;
+      }
+      const nk=key(nx,ny);
+      const tc = cell.type==="slow"?2.5:cell.type==="fast"?0.5:1;
+      const tg = (gScore[ck]??Infinity) + c*tc;
+      if (tg < (gScore[nk]??Infinity)) {
+        cameFrom[nk]=ck; gScore[nk]=tg;
+        fScore[nk]=tg+heuristic({x:nx,y:ny},end);
+        openSet.set(nk,{x:nx,y:ny});
+      }
+    }
+  }
+  return {path:[], visited:Object.keys(gScore)};
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function render() {
+  const pathSet = new Set(pathCells.map(p=>`${p.x},${p.y}`));
+  const visitSet = new Set(visitedCells);
+  const showVisited = document.getElementById("show-visited").checked;
+  const container = document.getElementById("grid-container");
+  container.innerHTML = "";
+
+  for (let y=0; y<ROWS; y++) {
+    const row = document.createElement("div");
+    row.className = "grid-row";
+    for (let x=0; x<COLS; x++) {
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      const type = grid[y][x].type;
+      const s = CELL_STYLE[type]||CELL_STYLE.empty;
+      const ck = `${x},${y}`;
+      const isStart = startPos?.x===x && startPos?.y===y;
+      const isEnd   = endPos?.x===x   && endPos?.y===y;
+      const isPath  = pathSet.has(ck);
+      const isVisit = showVisited && visitSet.has(ck) && !isPath;
+      const isLast  = pathCells.length && pathCells[pathCells.length-1].x===x && pathCells[pathCells.length-1].y===y;
+
+      let bg = s.bg;
+      if (isVisit) bg="#1e3a5f";
+      if (isPath)  bg="#f43f5e";
+      if (isStart) bg="#22c55e22";
+      if (isEnd)   bg="#f59e0b22";
+
+      cell.style.background = bg;
+      cell.style.borderColor = s.border;
+
+      if (isStart) cell.textContent = "🚗";
+      else if (isEnd) cell.textContent = "🏁";
+      else if (isLast && isPath) cell.textContent = "⭐";
+      else cell.textContent = "";
+
+      cell.addEventListener("mousedown", ()=>{ isMouseDown=true; lastCell=ck; applyTool(x,y); });
+      cell.addEventListener("mouseenter", ()=>{
+        if (!isMouseDown) return;
+        if (ck===lastCell) return;
+        lastCell=ck; applyTool(x,y);
+      });
+      row.appendChild(cell);
+    }
+    container.appendChild(row);
+  }
+  updateMessages();
+  updateStats();
+}
+
+function applyTool(x,y) {
+  if (currentTool==="start") { startPos={x,y}; render(); return; }
+  if (currentTool==="end")   { endPos={x,y};   render(); return; }
+  if (currentTool==="erase") { grid[y][x]={type:"empty"}; }
+  else { grid[y][x]={type:currentTool}; }
+  renderCell(x,y);
+}
+
+function renderCell(x,y) {
+  // Fast single-cell update without full re-render
+  const container = document.getElementById("grid-container");
+  const rowEl = container.children[y];
+  if (!rowEl) return;
+  const cellEl = rowEl.children[x];
+  if (!cellEl) return;
+  const type = grid[y][x].type;
+  const s = CELL_STYLE[type]||CELL_STYLE.empty;
+  cellEl.style.background = s.bg;
+  cellEl.style.borderColor = s.border;
+  cellEl.textContent = "";
+}
+
+function updateMessages() {
+  const hide = id => document.getElementById(id).style.display="none";
+  const show = id => document.getElementById(id).style.display="block";
+  hide("msg-nostart"); hide("msg-noend"); hide("msg-nopath"); hide("msg-ok");
+  if (!startPos) show("msg-nostart");
+  else if (!endPos) show("msg-noend");
+}
+
+function updateStats() {
+  if (pathCells.length === 0) { document.getElementById("stats-section").style.display="none"; return; }
+  document.getElementById("stats-section").style.display="block";
+  document.getElementById("stat-len").textContent = (pathCells.length-1)+" pasos";
+  document.getElementById("stat-vis").textContent = visitedCells.length;
+  let diag=0;
+  for (let i=1;i<pathCells.length;i++) {
+    if (Math.abs(pathCells[i].x-pathCells[i-1].x)===1 && Math.abs(pathCells[i].y-pathCells[i-1].y)===1) diag++;
+  }
+  document.getElementById("stat-diag").textContent = diag;
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+function runAStar() {
+  if (!startPos||!endPos||animating) return;
+  const {path,visited} = aStar(startPos,endPos);
+  visitedCells = visited;
+  pathCells = [];
+  if (path.length===0) {
+    document.getElementById("msg-nopath").style.display="block";
+    render();
+    return;
+  }
+  animating=true;
+  document.getElementById("btn-run").disabled=true;
+  render(); // show visited first
+  path.forEach((p,i) => {
+    setTimeout(()=>{
+      pathCells = path.slice(0,i+1);
+      // Update cell colors directly for performance
+      const container = document.getElementById("grid-container");
+      const rowEl = container.children[p.y];
+      if (rowEl) {
+        const cellEl = rowEl.children[p.x];
+        if (cellEl) {
+          cellEl.style.background="#f43f5e";
+          if (i===path.length-1) cellEl.textContent="⭐";
+          else if (i===0) cellEl.textContent="🚗";
+          else cellEl.textContent="";
+          cellEl.classList.add("path-anim");
+          setTimeout(()=>cellEl.classList.remove("path-anim"),120);
+        }
+      }
+      if (i===path.length-1) {
+        animating=false;
+        document.getElementById("btn-run").disabled=false;
+        let diag=0;
+        for (let j=1;j<path.length;j++) {
+          if (Math.abs(path[j].x-path[j-1].x)===1 && Math.abs(path[j].y-path[j-1].y)===1) diag++;
+        }
+        document.getElementById("msg-ok-text").textContent =
+          `Ruta encontrada: ${path.length-1} pasos | ${diag} diagonales`;
+        document.getElementById("msg-ok").style.display="block";
+        updateStats();
+      }
+    }, i*25);
+  });
+}
+
+function clearPath() {
+  pathCells=[]; visitedCells=[];
+  animating=false;
+  document.getElementById("btn-run").disabled=false;
+  document.getElementById("stats-section").style.display="none";
+  render();
+}
+
+function resetAll() {
+  grid=makeGrid(); startPos=null; endPos=null;
+  pathCells=[]; visitedCells=[];
+  animating=false;
+  document.getElementById("btn-run").disabled=false;
+  document.getElementById("stats-section").style.display="none";
+  render();
+}
+
+function loadPreset() {
+  grid=makeGrid();
+  for (let y=2;y<16;y++){grid[y][6]={type:"wall"};grid[y][7]={type:"wall"};}
+  for (let y=4;y<14;y++){grid[y][14]={type:"wall"};grid[y][15]={type:"wall"};}
+  for (let x=3;x<10;x++) grid[5][x]={type:"wall"};
+  for (let x=9;x<18;x++) grid[10][x]={type:"wall"};
+  for (let x=8;x<16;x++) grid[3][x]={type:"fast"};
+  for (let y=12;y<16;y++) for (let x=8;x<14;x++) grid[y][x]={type:"slow"};
+  startPos={x:1,y:1}; endPos={x:22,y:16};
+  pathCells=[]; visitedCells=[];
+  animating=false;
+  document.getElementById("btn-run").disabled=false;
+  render();
+}
+
+// ── Event listeners ───────────────────────────────────────────────────────────
+document.addEventListener("mouseup", ()=>{ isMouseDown=false; lastCell=null; });
+
+document.querySelectorAll(".tool-btn").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    currentTool=btn.dataset.tool;
+    document.querySelectorAll(".tool-btn").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+  });
+});
+
+document.getElementById("btn-run").addEventListener("click", runAStar);
+document.getElementById("btn-clear").addEventListener("click", clearPath);
+document.getElementById("btn-reset").addEventListener("click", resetAll);
+document.getElementById("btn-preset").addEventListener("click", loadPreset);
+document.getElementById("show-visited").addEventListener("change", render);
+
+// Init
+render();
+</script>
+</body>
+</html>
