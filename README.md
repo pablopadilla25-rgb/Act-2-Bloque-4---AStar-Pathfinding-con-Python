@@ -9,19 +9,30 @@ Costes de terreno variables: autopistas (×0.5), tráfico lento (×2.5), edifici
 Visualización animada de la ruta y las celdas exploradas
 Configuración completamente interactiva, sin instalar nada.
 
-Cómo ejecutarlo
-Descargar astar_navigation.html y abrirlo con doble clic en cualquier navegador. No requiere instalación ni servidor.
+Requisitos
+
+- Python 3.12
+- Pygame 2.x
+
+Como ejecutar python 3.12 por si tienes una versión mas nueva en VS: 
+py install 3.12
+Espera a que termine y luego:
+py -3.12 -m pip install pygame
+Y finalmente:
+py -3.12 astar_navigation.py
 
 Referencias
 Durante el desarrollo me apoyé en los siguientes recursos:
 
-- Red Blob Games — Introduction to A* · redblobgames.com/pathfinding/a-star/introduction.html
+Red Blob Games — Introduction to A* · redblobgames.com/pathfinding/a-star/introduction
 La referencia más completa y visual para entender A*, Dijkstra y las distintas heurísticas. Muy útil para comprender la distancia Octile y el manejo de costes de terreno.
-- Wikipedia — A* search algorithm · en.wikipedia.org/wiki/A*_search_algorithm
+Wikipedia — A* search algorithm · en.wikipedia.org/wiki/A*_search_algorithm
 Explicación formal del algoritmo, pseudocódigo y propiedades de admisibilidad y consistencia.
-- Amit's Thoughts on Pathfinding · theory.stanford.edu/~amitp/GameProgramming
+Amit's Thoughts on Pathfinding · theory.stanford.edu/~amitp/GameProgramming
 Artículos de Amit Patel (Stanford) sobre distintas variantes de pathfinding y optimizaciones para mapas en cuadrícula.
+Documentación oficial de Pygame · pygame.org/docs
+Referencia usada para la implementación de la interfaz gráfica, eventos de ratón y renderizado.
+
 
 Conclusiones
-El ejercicio demuestra que A* es una solución sólida para sistemas de navegación: encuentra rutas óptimas de forma eficiente incluso con obstáculos complejos y costes variables.
-La incorporación de movimiento diagonal y diferentes tipos de terreno acerca el prototipo a un escenario urbano real, cumpliendo todos los requisitos del enunciado.
+El ejercicio demuestra que A* es una solución sólida para sistemas de navegación: encuentra rutas óptimas de forma eficiente incluso con obstáculos complejos y costes variables. La incorporación de movimiento diagonal y diferentes tipos de terreno acerca el prototipo a un escenario urbano real, cumpliendo todos los requisitos del enunciado.
